@@ -1,0 +1,11 @@
+{
+  "name": "podio-filipinos-tests",
+  "private": true,
+  "scripts": {
+    "test": "node logic.test.js && node e2e.js"
+  },
+  "devDependencies": {
+    "peer": "1.0.2",
+    "playwright": "1.56.0"
+  }
+}
