@@ -10,6 +10,17 @@ var ALL = [HOST].concat(PEOPLE);
 var NAMEOF = {};
 ALL.forEach(function (p) { NAMEOF[p.key] = p.name; });
 var NOTE_MAX = 280;
+// Lo que había en cada caja: se desvela en resultados
+var PRODUCTS = [
+  { key: 'auchan', name: 'Aros', store: 'Auchan' },
+  { key: 'eroski', name: 'Rosquillas', store: 'Eroski' },
+  { key: 'mercadona', name: 'Roditas', store: 'Mercadona' },
+  { key: 'carrefour', name: 'Aros de chocolate blanco', store: 'Carrefour' },
+  { key: 'lidl', name: 'Morenazos', store: 'Lidl' },
+  { key: 'froiz', name: 'Aros blancos', store: 'Froiz' }
+];
+var PRODUCT = {};
+PRODUCTS.forEach(function (p) { PRODUCT[p.key] = p; });
 
 /* ---------- pure helpers (also loaded by the Node tests) ---------- */
 function validOrder(o) {
@@ -37,6 +48,24 @@ function cleanNotes(n) {
   for (var c = 1; c <= N; c++) {
     if (typeof n[c] === 'string' && n[c]) out[c] = n[c].slice(0, NOTE_MAX);
   }
+  return out;
+}
+// {caja: producto}, cada producto en una sola caja
+function cleanReveal(r) {
+  var out = {}, used = {};
+  if (!r || typeof r !== 'object') return out;
+  for (var c = 1; c <= N; c++) {
+    var k = r[c];
+    if (typeof k === 'string' && PRODUCT[k] && !used[k]) { out[c] = k; used[k] = 1; }
+  }
+  return out;
+}
+// asigna un producto a una caja; si ya estaba en otra caja, se intercambian
+function assignReveal(r, caja, key) {
+  var out = cleanReveal(r), prev = out[caja] || '';
+  if (key && !PRODUCT[key]) return out;
+  for (var c = 1; c <= N; c++) if (c !== caja && key && out[c] === key) { if (prev) out[c] = prev; else delete out[c]; }
+  if (key) out[caja] = key; else delete out[caja];
   return out;
 }
 function placeToken(slots, caja, toIdx) {
@@ -105,5 +134,5 @@ function joinNames(list) {
 }
 if (typeof module !== 'undefined') {
   module.exports = { validOrder: validOrder, cleanSlots: cleanSlots, cleanNotes: cleanNotes, placeToken: placeToken, returnToken: returnToken,
-    sameSlots: sameSlots, placedCount: placedCount, computeStats: computeStats, rankRows: rankRows, fmtMean: fmtMean, modeTxt: modeTxt, joinNames: joinNames };
+    sameSlots: sameSlots, placedCount: placedCount, cleanReveal: cleanReveal, assignReveal: assignReveal, PRODUCTS: PRODUCTS, computeStats: computeStats, rankRows: rankRows, fmtMean: fmtMean, modeTxt: modeTxt, joinNames: joinNames };
 }

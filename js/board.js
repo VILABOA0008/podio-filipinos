@@ -15,7 +15,7 @@ function stageHTML(slots, o) {
     else if (o.interactive) inner = '<button type="button" class="slot-btn" data-place="' + p + '" aria-label="Puesto ' + p + ', vacío"></button>';
     else inner = '<span class="slot-btn" aria-hidden="true"></span>';
     return '<div class="col"><div class="slot' + (c ? ' full' : '') + '" data-place="' + p + '">' + inner + '</div>' +
-      '<div class="step s' + p + '"><span class="ord">' + p + '<i>º</i></span>' + (c ? '<span class="cap">Caja ' + c + '</span>' : '') + '</div></div>';
+      '<div class="step s' + p + '"><span class="ord">' + p + '<i>º</i></span>' + (c ? '<span class="cap">' + esc(o.label ? o.label(c) : 'Caja ' + c) + '</span>' : '') + '</div></div>';
   }
   return '<div class="stage' + (o.dim ? ' dim' : '') + '" id="' + (o.id || 'stage') + '" role="group" aria-label="Podio">' +
     '<div class="tier">' + col(2) + col(1) + col(3) + '</div><div class="floor"></div><div class="tier">' + col(4) + col(5) + col(6) + '</div></div>';

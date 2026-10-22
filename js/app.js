@@ -23,7 +23,7 @@ var S = {
   mode: 'landing', code: null, cid: null, hasState: false,
   room: { phase: 'closed', round: 1 }, claims: {}, online: {}, voted: {}, votes: null,
   myKey: null, mySent: null, pending: null, pendingSentAt: 0,
-  draft: { slots: [0, 0, 0, 0, 0, 0], notes: {} }, draftFor: '',
+  draft: { slots: [0, 0, 0, 0, 0, 0], notes: {} }, draftFor: '', reveal: null,
   view: '', sel: 0, sort: 'mean', rosterOpen: false, resSig: '',
   armNew: false, armFree: '', armChange: false, armResults: false, armCreate: false, armTake: ''
 };
@@ -60,7 +60,7 @@ function sanitizeHost(h) {
     code: String(h.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8),
     phase: h.phase === 'open' || h.phase === 'results' ? h.phase : 'closed',
     round: typeof h.round === 'number' && h.round >= 1 ? Math.floor(h.round) : 1,
-    claims: {}, votes: {}, at: h.at || Date.now()
+    claims: {}, votes: {}, reveal: {}, at: h.at || Date.now()
   };
   var k;
   for (k in (h.claims || {})) if (NAMEOF[k] && k !== HOST.key && typeof h.claims[k] === 'string') out.claims[k] = h.claims[k];
@@ -69,6 +69,7 @@ function sanitizeHost(h) {
     for (k in rv) if (NAMEOF[k] && rv[k] && validOrder(rv[k].order)) clean[k] = { order: rv[k].order.slice(), at: rv[k].at || 0 };
     out.votes[r] = clean;
   }
+  for (var rr in (h.reveal || {})) out.reveal[rr] = cleanReveal(h.reveal[rr]);
   return out;
 }
 function hostLoad(code) { var h = lsGet('podio:host'); return h && String(h.code).toUpperCase() === code ? sanitizeHost(h) : null; }
@@ -89,6 +90,7 @@ function hostSync() {
   S.voted = {}; for (k in rv) S.voted[k] = true;
   S.votes = null;
   if (H.phase === 'results') { S.votes = {}; for (k in rv) S.votes[k] = { order: rv[k].order.slice() }; }
+  S.reveal = H.phase === 'results' ? cleanReveal(H.reveal[H.round]) : null;
   S.online = hostOnlineKeys();
   S.myKey = HOST.key;
   S.mySent = rv[HOST.key] ? rv[HOST.key].order.slice() : null;
@@ -100,7 +102,8 @@ function stateFor(c) {
   return {
     t: 'state', v: 1, code: H.code, phase: H.phase, round: H.round,
     taken: Object.keys(H.claims), online: Object.keys(hostOnlineKeys()), voted: Object.keys(rv),
-    votes: votes, you: you, yourVote: you && rv[you] ? rv[you].order : null
+    votes: votes, you: you, yourVote: you && rv[you] ? rv[you].order : null,
+    reveal: H.phase === 'results' ? cleanReveal(H.reveal[H.round]) : null
   };
 }
 function hostBroadcast() { NET.conns.forEach(function (c) { if (c.open && c._cid) hostSend(c, stateFor(c)); }); }
@@ -180,6 +183,7 @@ function onState(m) {
     S.votes = {};
     for (var k in m.votes) if (NAMEOF[k] && validOrder(m.votes[k])) S.votes[k] = { order: m.votes[k].slice() };
   }
+  S.reveal = phase === 'results' ? cleanReveal(m.reveal) : null;
   S.myKey = NAMEOF[m.you] && m.you !== HOST.key ? m.you : null;
   S.mySent = validOrder(m.yourVote) ? m.yourVote.slice() : null;
   S.hasState = true;
@@ -231,7 +235,16 @@ function submitVote() {
 function openRoom() { H.phase = 'open'; hostChanged(); keepAwake(); }
 function toResults() { S.armResults = false; H.phase = 'results'; hostChanged(); }
 function backToVote() { H.phase = 'open'; hostChanged(); }
-function newRoom() { S.armNew = false; H.round += 1; H.phase = 'open'; hostChanged(); }
+function newRoom() {
+  S.armNew = false;
+  if (!H.reveal[H.round + 1]) H.reveal[H.round + 1] = cleanReveal(H.reveal[H.round]);   // mismas cajas por defecto
+  H.round += 1; H.phase = 'open'; hostChanged();
+}
+function setReveal(caja, key) {
+  if (S.mode !== 'host' || !(caja >= 1 && caja <= N)) return;
+  H.reveal[H.round] = assignReveal(H.reveal[H.round], caja, key);
+  hostChanged();
+}
 
 /* ---------- pantalla encendida en el anfitrión ---------- */
 var wakeLock = null;

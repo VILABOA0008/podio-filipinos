@@ -241,13 +241,33 @@ function arm(prop, val) {
 }
 
 /* ---------- resultados ---------- */
+function prodOf(c) { var k = S.reveal && S.reveal[c]; return k ? PRODUCT[k] : null; }
+function boxLabel(c) {
+  var p = prodOf(c);
+  if (!p) return 'Caja ' + c;
+  return '<span class="bx"><b>' + esc(p.name) + '</b><small>' + esc(p.store) + ', caja ' + c + '</small></span>';
+}
+function revealEditorHTML() {
+  var rows = '';
+  for (var c = 1; c <= N; c++) {
+    var cur = (S.reveal && S.reveal[c]) || '';
+    rows += '<div class="rv"><span class="cj" style="--c:var(--c' + c + ')" aria-hidden="true">' + c + '</span>' +
+      '<label for="rv' + c + '">Caja ' + c + '</label><select id="rv' + c + '" data-reveal="' + c + '">' +
+      '<option value="">Sin desvelar</option>' +
+      PRODUCTS.map(function (p) { return '<option value="' + p.key + '"' + (cur === p.key ? ' selected' : '') + '>' + esc(p.store) + ': ' + esc(p.name) + '</option>'; }).join('') +
+      '</select></div>';
+  }
+  return '<section class="card sec reveal"><h2>¿Qué había en cada caja?</h2>' +
+    '<p>Lo ven todos en cuanto lo eliges. Si pones un súper que ya estaba en otra caja, se intercambian.</p>' + rows + '</section>';
+}
 function resultsHTML() {
   var voters = ALL.filter(function (p) { return S.votes && S.votes[p.key]; });
   var h = '<div class="res"><div><h2>Resultados de la sala ' + S.room.round + '</h2><p class="foot">' + voters.length + ' de ' + ALL.length + ' han votado.</p></div>';
+  if (S.mode === 'host') h += revealEditorHTML();
   if (!voters.length) return h + '<div class="card"><h2>Nadie votó en esta sala</h2><p>' + (S.mode === 'host' ? 'Puedes volver a abrir la votación con «Volver a votar».' : 'Vilaboa puede volver a abrir la votación.') + '</p></div></div>';
   var stats = computeStats(voters.map(function (p) { return S.votes[p.key].order; }));
   var byMean = rankRows(stats, 'mean'), rows = S.sort === 'mode' ? rankRows(stats, 'mode') : byMean;
-  h += '<section class="sec"><h2>Podio del grupo</h2>' + stageHTML(byMean.map(function (r) { return r.caja; }), { id: 'gstage' }) +
+  h += '<section class="sec"><h2>Podio del grupo</h2>' + stageHTML(byMean.map(function (r) { return r.caja; }), { id: 'gstage', label: function (c) { var p = prodOf(c); return p ? p.store : 'Caja ' + c; } }) +
     '<p class="foot">Ordenado por la media. Si empatan, decide la moda y después el número de caja.</p></section>';
   h += '<section class="sec"><h2>Ranking</h2><div class="seg" role="group" aria-label="Ordenar por">' +
     '<button type="button" data-act="sort" data-by="mean" aria-pressed="' + (S.sort !== 'mode') + '">Por media</button>' +
@@ -255,10 +275,11 @@ function resultsHTML() {
     '<div class="scroll"><table class="tbl"><thead><tr><th>Puesto</th><th>Caja</th><th class="num">Media</th><th>Moda</th></tr></thead><tbody>' +
     rows.map(function (r) {
       return '<tr' + (r.rank === 1 ? ' class="win"' : '') + '><td class="rank">' + r.rank + 'º</td>' +
-        '<td><span class="boxcell"><span class="cj" style="--c:var(--c' + r.caja + ')">' + r.caja + '</span>Caja ' + r.caja + '</span></td>' +
+        '<td><span class="boxcell"><span class="cj" style="--c:var(--c' + r.caja + ')">' + r.caja + '</span>' + boxLabel(r.caja) + '</span></td>' +
         '<td class="num">' + fmtMean(r.mean) + '</td><td class="mode' + (r.modes.length ? '' : ' muted') + '">' + modeTxt(r.modes) + '</td></tr>';
     }).join('') + '</tbody></table></div>' +
-    '<p class="foot"><b>Media</b>: el puesto medio que le dieron. Cuanto más bajo, mejor. <b>Moda</b>: el puesto que más se repite. Aparece «-» si ninguno se repite.</p></section>';
+    '<p class="foot"><b>Media</b>: el puesto medio que le dieron. Cuanto más bajo, mejor. <b>Moda</b>: el puesto que más se repite. Aparece «-» si ninguno se repite.</p>' +
+    (S.mode !== 'host' && !Object.keys(S.reveal || {}).length ? '<p class="foot">Vilaboa todavía no ha desvelado qué había en cada caja. Aparecerá aquí en cuanto lo haga.</p>' : '') + '</section>';
   h += '<section class="sec"><h2>Qué votó cada uno</h2><div class="scroll"><table class="tbl vt"><thead><tr><th>Quién</th>' +
     [1, 2, 3, 4, 5, 6].map(function (p) { return '<th class="pl">' + p + 'º</th>'; }).join('') + '</tr></thead><tbody>' +
     ALL.map(function (p) {
@@ -269,14 +290,14 @@ function resultsHTML() {
       }).join('') + '</tr>';
     }).join('') + '</tbody></table></div></section>';
   var notes = [];
-  for (var c = 1; c <= N; c++) if (S.draft.notes[c]) notes.push('<li><span class="cj" style="--c:var(--c' + c + ')">' + c + '</span><span>' + esc(S.draft.notes[c]) + '</span></li>');
+  for (var c = 1; c <= N; c++) if (S.draft.notes[c]) notes.push('<li><span class="cj" style="--c:var(--c' + c + ')">' + c + '</span><span>' + (prodOf(c) ? '<b>' + esc(prodOf(c).name) + ' (' + esc(prodOf(c).store) + ')</b><br>' : '') + esc(S.draft.notes[c]) + '</span></li>');
   if (notes.length) h += '<details class="mynotes"><summary>Tus notas de esta sala</summary><ul>' + notes.join('') + '</ul></details>';
   return h + '</div>';
 }
 function updateResults() {
   var el = $('res');
   if (!el) return;
-  var sig = JSON.stringify([S.sort, S.room.round, S.votes, S.draft.notes, S.mode]);
+  var sig = JSON.stringify([S.sort, S.room.round, S.votes, S.draft.notes, S.mode, S.reveal]);
   if (sig === S.resSig) return;
   var open = el.querySelector('.mynotes[open]');
   S.resSig = sig;
@@ -334,6 +355,7 @@ window.addEventListener('pointermove', onPointerMove, { passive: false });
 window.addEventListener('pointerup', onPointerUp);
 window.addEventListener('pointercancel', onPointerCancel);
 document.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('#board .token')) e.preventDefault(); });
+document.addEventListener('change', function (e) { var t = e.target; if (t && t.matches && t.matches('select[data-reveal]')) setReveal(+t.dataset.reveal, t.value); });
 document.addEventListener('input', function (e) { var t = e.target; if (t && t.matches && t.matches('textarea[data-note]')) onNoteInput(t); });
 document.addEventListener('focusout', function (e) { var t = e.target; if (t && t.matches && t.matches('textarea[data-note]')) flushSave(); });
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flushSave(); });

@@ -181,6 +181,20 @@ async function shot(p, name, full) { await p.screenshot({ path: path.join(SHOTS,
   const mean = (c) => orders.reduce((s, o) => s + o.indexOf(c) + 1, 0) / orders.length;
   const cells = await diana.$$eval('.tbl:not(.vt) tbody tr', (rs) => rs.map((r) => [...r.children].map((c) => c.textContent.trim())));
   ok(cells.length === 6 && cells.every((r) => r[2] === mean(+r[1].match(/Caja (\d)/)[1]).toFixed(2).replace('.', ',')), 'medias correctas en el móvil de Diana');
+  // desvelar qué había en cada caja
+  await host2.selectOption('#rv1', 'mercadona');
+  await until(diana, () => S.reveal && S.reveal[1] === 'mercadona');
+  ok((await diana.textContent('.tbl:not(.vt)')).includes('Roditas'), 'Diana ve el nombre de la caja 1');
+  ok((await diana.textContent('#gstage')).includes('Mercadona'), 'el podio del grupo enseña el súper');
+  await host2.selectOption('#rv2', 'mercadona');
+  ok(JSON.stringify(await st(host2, () => H.reveal[1])) === '{"2":"mercadona"}', 'elegir un súper ya usado lo cambia de caja');
+  const prods = ['auchan', 'eroski', 'mercadona', 'carrefour', 'lidl', 'froiz'];
+  for (let c = 1; c <= 6; c++) await host2.selectOption('#rv' + c, prods[c - 1]);
+  await until(diana, () => S.reveal && Object.keys(S.reveal).length === 6);
+  const txt = await diana.textContent('.tbl:not(.vt)');
+  ok(['Aros', 'Rosquillas', 'Roditas', 'Aros de chocolate blanco', 'Morenazos', 'Aros blancos', 'Auchan', 'Eroski', 'Carrefour', 'Lidl', 'Froiz'].every((w) => txt.includes(w)), 'los seis productos y súpers en la tabla');
+  ok((await diana.textContent('.mynotes')).includes('Roditas'), 'las notas dicen qué producto era');
+  await shot(host2, 'p09c-host-reveal', true);
   ok((await diana.textContent('.mynotes')).includes('la más crujiente'), 'Diana ve sus notas en resultados');
   await shot(diana, 'p09-results', true);
 
@@ -198,11 +212,16 @@ async function shot(p, name, full) { await p.screenshot({ path: path.join(SHOTS,
   ok(true, 'Diana recupera su nombre y su voto enviado');
   await shot(diana2, 'p09b-recovered');
   await host2.click('[data-act="results"]'); await host2.click('[data-act="results"]');
+  await until(diana2, () => S.view === 'results' && S.reveal && Object.keys(S.reveal).length === 6);
+  await shot(diana2, 'p09d-guest-revealed', true);
+  await host2.click('[data-act="back"]'); await until(diana2, () => S.view.indexOf('vote') === 0);
+  await host2.click('[data-act="results"]'); await host2.click('[data-act="results"]');
   await until(diana2, () => S.view === 'results');
 
   // 10. nueva sala y liberar nombre
   await host2.click('[data-act="new"]'); await host2.click('[data-act="new"]');
   await until(diana2, () => S.view === 'vote:2');
+  ok(JSON.stringify(await st(host2, () => H.reveal[2])) === JSON.stringify(await st(host2, () => H.reveal[1])), 'la sala 2 hereda lo que había en cada caja');
   ok(JSON.stringify(await st(diana2, () => S.draft.slots)) === '[0,0,0,0,0,0]', 'la sala 2 empieza vacía');
   await host2.click('.count');
   await shot(host2, 'p10-host-panel');

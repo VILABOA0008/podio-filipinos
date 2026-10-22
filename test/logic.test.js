@@ -73,4 +73,13 @@ assert.strictEqual(seven.find(r=>r.caja===6).modeCount, 7);
 
 assert.strictEqual(L.joinNames(['a']), 'a');
 assert.strictEqual(L.joinNames(['a','b','c']), 'a, b y c');
+// desvelar: cada súper en una sola caja, y elegir uno ya usado lo intercambia
+assert.deepStrictEqual(L.cleanReveal({1:'lidl',2:'lidl',3:'nope',7:'froiz'}), {1:'lidl'});
+let r = L.assignReveal({}, 1, 'mercadona');  assert.deepStrictEqual(r, {1:'mercadona'});
+r = L.assignReveal(r, 2, 'lidl');             assert.deepStrictEqual(r, {1:'mercadona', 2:'lidl'});
+r = L.assignReveal(r, 2, 'mercadona');        assert.deepStrictEqual(r, {1:'lidl', 2:'mercadona'});
+r = L.assignReveal(r, 3, 'lidl');             assert.deepStrictEqual(r, {2:'mercadona', 3:'lidl'});
+r = L.assignReveal(r, 2, '');                 assert.deepStrictEqual(r, {3:'lidl'});
+r = L.assignReveal(r, 1, 'nope');             assert.deepStrictEqual(r, {3:'lidl'});
+assert.strictEqual(L.PRODUCTS.map((p) => p.store).join(','), 'Auchan,Eroski,Mercadona,Carrefour,Lidl,Froiz');
 console.log('logic tests passed');
